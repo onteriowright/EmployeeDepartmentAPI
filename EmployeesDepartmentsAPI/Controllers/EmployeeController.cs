@@ -32,7 +32,7 @@ namespace EmployeesDepartmentsAPI.Controllers
 
         // Get all employees from the database
         [HttpGet]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> GET()
         {
             using (SqlConnection conn = Connection)
             {
@@ -73,9 +73,9 @@ namespace EmployeesDepartmentsAPI.Controllers
         }
 
 
-        // Get a single employee from Id
+        // Get a single employee by Id from database
         [HttpGet("{id}", Name = "GetEmployee")]
-        public async Task<IActionResult> Get([FromRoute] int id)
+        public async Task<IActionResult> GET([FromRoute] int id)
         {
             using (SqlConnection conn = Connection)
             {
@@ -118,6 +118,115 @@ namespace EmployeesDepartmentsAPI.Controllers
             }
         }
 
+
+        // Create employee and add them to database
+        [HttpPost]
+        public async Task<IActionResult> POST([FromBody] Employee employee)
+        {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"INSERT INTO Employee (FirstName, LastName, DepartmentId)
+                                        OUTPUT INSERTED.Id
+                                        VALUES (@firstName, @lastName, @departmentId)";
+                    cmd.Parameters.Add(new SqlParameter("@firstName", employee.FirstName));
+                    cmd.Parameters.Add(new SqlParameter("@lastName", employee.LastName));
+                    cmd.Parameters.Add(new SqlParameter("@departmentId", employee.DepartmentId));
+
+                    int newId = (int)cmd.ExecuteScalar();
+                    employee.Id = newId;
+                    return CreatedAtRoute("GetEmployee", new { id = newId }, employee);
+                }
+            }
+        }
+
+
+        // Update single employee by id from database
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PUT([FromRoute] int id, [FromBody] Employee employee)
+        {
+            try
+            {
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"UPDATE Employee
+                                            SET 
+                                            FirstName = @firstName,
+                                            LastName = @lastName,
+                                            DepartmentId = @departmentId
+                                            WHERE Id = @id";
+                        cmd.Parameters.Add(new SqlParameter("@firstName", employee.FirstName));
+                        cmd.Parameters.Add(new SqlParameter("@lastName", employee.LastName));
+                        cmd.Parameters.Add(new SqlParameter("@departmentId", employee.DepartmentId));
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            return new StatusCodeResult(StatusCodes.Status204NoContent);
+                        }
+                        throw new Exception("No rows were effected");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                if (!EmployeeExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+
+        //Delete employee by id from dataebase
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DELETE([FromRoute] int id)
+        {
+            try
+            {
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"DELETE FROM Employee
+                                            WHERE Id = @id";
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            return new StatusCodeResult(StatusCodes.Status204NoContent);
+                        }
+                        throw new Exception("No rows were affected");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                if (!EmployeeExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+
+        // Check to see if employee exists by id in database
         private bool EmployeeExists(int id)
         {
             using (SqlConnection conn = Connection)
